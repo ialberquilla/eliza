@@ -25,7 +25,8 @@ import { settings } from "@elizaos/core";
 import { createApiRouter } from "./api.ts";
 import * as fs from "fs";
 import * as path from "path";
-
+import { ContractEventListener } from './contractEvents';
+import { contractABI } from './abi';
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadDir = path.join(process.cwd(), "data", "uploads");
@@ -78,6 +79,7 @@ export class DirectClient {
     private agents: Map<string, AgentRuntime>; // container management
     private server: any; // Store server instance
     public startAgent: Function; // Store startAgent functor
+    private contractEventListener: ContractEventListener | null = null;
 
     constructor() {
         elizaLogger.log("DirectClient constructor");
@@ -611,6 +613,22 @@ export class DirectClient {
     }
 
     public start(port: number) {
+        // Initialize contract event listener if environment variables are set
+        if (process.env.WEBSOCKET_PROVIDER_URL && process.env.CONTRACT_ADDRESS && process.env.EVENT_NAME) {
+            try {
+                this.contractEventListener = new ContractEventListener({
+                    rpcUrl: process.env.WEBSOCKET_PROVIDER_URL,
+                    contractAddress: process.env.CONTRACT_ADDRESS,
+                    contractABI: contractABI,
+                    eventName: process.env.EVENT_NAME
+                });
+                this.contractEventListener.startListening();
+                elizaLogger.success('Contract event listener started successfully');
+            } catch (error) {
+                elizaLogger.error('Failed to start contract event listener:', error);
+            }
+        }
+
         this.server = this.app.listen(port, () => {
             elizaLogger.success(
                 `REST API bound to 0.0.0.0:${port}. If running locally, access it at http://localhost:${port}.`
@@ -640,6 +658,10 @@ export class DirectClient {
     }
 
     public stop() {
+        if (this.contractEventListener) {
+            this.contractEventListener.stopListening();
+        }
+
         if (this.server) {
             this.server.close(() => {
                 elizaLogger.success("Server stopped");
