@@ -5,7 +5,7 @@ on:
       - main
   pull_request:
     branches:
-      - main
+      - client-bonsai
 jobs:
   update-instance:
     runs-on: ubuntu-latest
