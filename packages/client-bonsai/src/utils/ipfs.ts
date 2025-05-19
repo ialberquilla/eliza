@@ -231,8 +231,8 @@ interface StorjUploadResult {
 
 const getStorjPublicUrl = (bucket: string, key: string): string => {
   const keys = {
-    "publication-history-media": "jw5fzwqqirjuu6i2aambbebh4uza",
-    "publication-history-metadata": "jw3iog3dy7frukpkum5xo6tklyxq",
+    "publication-history-media": "jvblhomcf2gq63xv5wc3d6exusuq",
+    "publication-history-metadata": "jw4dvq6r2t672dnqj4nj4g4fauqa",
   }
   const endpoint = `https://link.storjshare.io/raw/${keys[bucket]}/${bucket}`;
   return `${endpoint}/${key}`;

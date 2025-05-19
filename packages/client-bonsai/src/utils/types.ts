@@ -48,6 +48,7 @@ export enum TemplateName {
   EVOLVING_ART = "evolving_art",
   INFO_AGENT = "info_agent",
   ADVENTURE_TIME_VIDEO = "adventure_time_video",
+  LENS_INFO_AGENT = "lens_info_agent",
 }
 
 /**
@@ -57,6 +58,7 @@ export enum TemplateCategory {
   EVOLVING_POST = "evolving_post",
   EVOLVING_ART = "evolving_art",
   CAMPFIRE = "campfire",
+  INSIGHTS = "insights",
 }
 
 /**

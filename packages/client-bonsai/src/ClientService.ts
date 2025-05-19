@@ -12,8 +12,9 @@ import {
 } from "@elizaos/core";
 import type Redis from "ioredis";
 import type { Collection, MongoClient } from "mongodb";
-import type { URI } from "@lens-protocol/metadata";
+import { type URI } from "@lens-protocol/metadata";
 import { walletOnly } from "@lens-chain/storage-client";
+import { privateKeyToAccount } from "viem/accounts";
 import redisClient from "./services/redis";
 import {
   type CreateTemplateRequestParams,
@@ -23,7 +24,7 @@ import {
   SmartMediaStatus,
   type Template,
   type TemplateName,
-  type TemplateUsage
+  type TemplateUsage,
 } from "./utils/types";
 import verifyLensId from "./middleware/verifyLensId";
 import verifyApiKeyOrLensId from "./middleware/verifyApiKeyOrLensId";
@@ -31,12 +32,13 @@ import { getClient, initCollections } from "./services/mongo";
 import adventureTimeTemplate from "./templates/adventureTime";
 import evolvingArtTemplate from "./templates/evolvingArt";
 import infoAgentTemplate from "./templates/infoAgent";
+import lensInfoAgentTemplate from "./templates/lensInfoAgent";
 import TaskQueue from "./utils/taskQueue";
 import { refreshMetadataFor, refreshMetadataStatusFor } from "./services/lens/refreshMetadata";
 import { formatSmartMedia } from "./utils/utils";
 import { BONSAI_CLIENT_VERSION, DEFAULT_FREEZE_TIME, FREE_GENERATIONS_PER_HOUR, PREMIUM_TEMPLATES } from "./utils/constants";
-import { LENS_CHAIN_ID } from "./services/lens/client";
-import { canUpdate, decrementCredits, DEFAULT_MODEL_ID, minCreditsForUpdate } from "./utils/apiCredits";
+import { LENS_CHAIN_ID, storageClient } from "./services/lens/client";
+import { canUpdate, decrementCredits, DEFAULT_MODEL_ID, minCreditsForUpdate } from "./utils/apicredits";
 import { fetchPostById } from "./services/lens/posts";
 import adventureTimeVideo from "./templates/adventureTimeVideo";
 import multer from "multer";
@@ -51,7 +53,7 @@ class BonsaiClient {
   private server: HttpServer;
 
   private redis: Redis;
-  private mongo: { client?: MongoClient, media?: Collection };
+  private mongo: { client?: MongoClient, media?: Collection, systemPrompt?: Collection };
 
   private tasks: TaskQueue = new TaskQueue();
   private cache: Map<UUID, SmartMediaBase> = new Map(); // agentId => preview
@@ -127,6 +129,8 @@ class BonsaiClient {
       async (req: express.Request, res: express.Response) => {
         const creator = req.user?.sub as `0x${string}`;
 
+        elizaLogger.info(`creator: ${creator}`);
+
         // Parse the templateData from the form field
         let templateData, category, templateName;
         try {
@@ -139,6 +143,10 @@ class BonsaiClient {
           res.status(400).json({ error: "Invalid JSON data in form field" });
           return;
         }
+
+        elizaLogger.info(`templateData: ${JSON.stringify(templateData)}`);
+        elizaLogger.info(`category: ${category}`);
+        elizaLogger.info(`templateName: ${templateName}`);
 
         // check if user has enough credits (for premium templates)
         if (PREMIUM_TEMPLATES.includes(templateName)) {
@@ -165,6 +173,7 @@ class BonsaiClient {
         }
 
         // generate the preview and cache it for the create step
+        elizaLogger.info(`runtime: ${JSON.stringify(runtime)}`);
         const response = await template.handler(runtime as IAgentRuntime, undefined, templateData);
         const media = formatSmartMedia(
           creator,
@@ -214,6 +223,7 @@ class BonsaiClient {
           token?: LaunchpadToken,
         } = req.body;
 
+
         let media: SmartMedia;
         if (agentId) {
           const preview = this.cache.get(agentId as UUID);
@@ -246,8 +256,27 @@ class BonsaiClient {
             return;
           }
 
-          // generate the first page
           const response = await template.handler(runtime as IAgentRuntime, undefined, params.templateData);
+
+          if (response && response.metadata && uri && postId) {
+            try {
+              elizaLogger.info(`Attempting to update metadata at URI ${uri} for new post ${postId}`);
+              const signer = privateKeyToAccount(process.env.LENS_STORAGE_NODE_PRIVATE_KEY as `0x${string}`);
+              const acl = walletOnly(signer.address, LENS_CHAIN_ID);
+              await storageClient.updateJson(uri as URI, response.metadata, signer, { acl });
+              elizaLogger.info(`Successfully updated metadata at URI ${uri} for post ${postId}. Refreshing Lens...`);
+              
+              const jobId = await refreshMetadataFor(postId);
+              const status = await refreshMetadataStatusFor(jobId as string);
+              elizaLogger.info(`Lens refresh metadata request for new post ${postId}: ${jobId} => ${status}`);
+              if (status === "FAILED") {
+                elizaLogger.error(`Failed to refresh Lens metadata for new post ${postId}`);
+              }
+            } catch (error) {
+              elizaLogger.error(`Error updating metadata or refreshing Lens for new post ${postId}:`, error);
+            }
+          }
+
           media = formatSmartMedia(
             creator,
             params.category,
@@ -267,6 +296,12 @@ class BonsaiClient {
           ...media,
           versions: [],
           status: SmartMediaStatus.ACTIVE,
+        });
+
+        this.mongo.systemPrompt?.insertOne({
+          postId: postId,
+          prompt: params?.templateData?.agentBehavior,
+          createdAt: Math.floor(Date.now() / 1000),
         });
 
         res.status(200).send(media);
@@ -305,6 +340,8 @@ class BonsaiClient {
           }
 
           const template = this.templates.get(data.template);
+
+
           if (!template) throw new Error("template not found");
           res.status(200).json({
             ...data,
@@ -336,6 +373,8 @@ class BonsaiClient {
       verifyApiKeyOrLensId,
       async (req: express.Request, res: express.Response) => {
         const { postId } = req.params;
+
+        elizaLogger.info(`updating post: ${postId}`);
         const { forceUpdate } = req.body;
 
         if (this.tasks.isProcessing(postId)) {
@@ -344,6 +383,8 @@ class BonsaiClient {
         }
 
         const data = await this.getPost(postId as string);
+
+        elizaLogger.info(`data: ${JSON.stringify(data)}`);
         if (!data) {
           res.status(404).send();
           return;
@@ -616,7 +657,7 @@ class BonsaiClient {
     this.mongo = await getClient();
 
     // init templates
-    for (const template of [adventureTimeTemplate, adventureTimeVideo, evolvingArtTemplate, infoAgentTemplate]) {
+    for (const template of [lensInfoAgentTemplate]) {
       this.templates.set(template.clientMetadata.name, template);
     };
   }

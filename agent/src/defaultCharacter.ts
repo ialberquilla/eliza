@@ -7,7 +7,7 @@ export const defaultCharacter: Character = {
     username: "bons_ai",
     plugins: [bonsai],
     // clients: ["twitter"],
-    modelProvider: ModelProviderName.OPENAI,
+    modelProvider: ModelProviderName.GOOGLE,
     // imageModelProvider: ModelProviderName.TITLES,
     settings: {
         secrets: {},
