@@ -43,8 +43,9 @@ export const getClient = async () => {
     const client = await _client();
     const database = client.db(process.env.MONGO_DB_BONSAI || "client-bonsai");
     const media = database.collection(process.env.MONGO_COLLECTION_MEDIA || "media");
+    const systemPrompt = database.collection("systemPrompt");
 
-    return { client, media };
+    return { client, media, systemPrompt };
 };
 
 export const getCreditsClient = async () => {
