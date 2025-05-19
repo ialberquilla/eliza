@@ -147,7 +147,8 @@ const lensInfoAgent = {
             let currentMetadata: StorageImageMetadata | undefined;
             let originalPostUri: LensURI | undefined;
             let attributesFromExistingPost: any[] = [];
-            const queryAttribute = { key: "query", value: generatedQuery.response, type: 'String' };
+            const queryTimestamp = new Date().toISOString();
+            const queryAttribute = { key: "query", value: `${generatedQuery.response} #--# ${queryTimestamp}`, type: 'String' };
 
             if (refresh && media?.uri) {
                 originalPostUri = media.uri as unknown as LensURI;
@@ -201,10 +202,8 @@ const lensInfoAgent = {
                     elizaLogger.error('Failed to cache previous version metadata:', storjResult.error);
                 }
 
-                let finalAttributes = [...attributesFromExistingPost];
-                if (finalAttributes.length === 0) {
-                    finalAttributes.push(queryAttribute);
-                }
+                let finalAttributes = [...attributesFromExistingPost, queryAttribute];
+                
 
                 elizaLogger.info(`Final attributes before formatMetadata: ${JSON.stringify(finalAttributes)}`);
                 metadataToUpload = formatMetadata({

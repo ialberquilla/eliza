@@ -470,6 +470,20 @@ class BonsaiClient {
       }
     );
 
+    /**
+     * GET /posts
+     * Returns all smart media posts
+     *
+     * @returns {Object} All smart media posts
+     */
+    this.app.get(
+      "/posts",
+      async (req: express.Request, res: express.Response) => {
+        const posts = await this.getAllPosts();
+        res.status(200).json(posts);
+      }
+    );
+    
     // Serve static images from temp directory
     this.app.use('/images', express.static(path.join(process.cwd(), 'temp', 'images'), {
       setHeaders: (res) => {
@@ -730,6 +744,11 @@ class BonsaiClient {
     }
 
     return JSON.parse(res);
+  }
+
+  public async getAllPosts(): Promise<SmartMedia[]> {
+    const posts = await this.mongo.media?.find({}).toArray();
+    return posts as unknown as SmartMedia[];
   }
 
   /**

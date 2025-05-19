@@ -20,7 +20,7 @@ export const isMediaStale = (media: SmartMedia): boolean => {
 };
 
 export const getLatestComments = (media: SmartMedia, comments: Post[]): Post[] => (
-    comments.filter((c: Post) => new Date(c.timestamp).getTime() > (media.updatedAt * 1000))
+    comments.filter((c: Post) => new Date(c.timestamp).getTime() < (media.updatedAt * 1000))
 );
 
 // collectors get 1 vote weight; > 1mil tokens is weight of 3
