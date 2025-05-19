@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout master
+    - name: Checkout client-bonsai
       uses: actions/checkout@main
       
     - name: Authenticate to Google Cloud
