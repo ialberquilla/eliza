@@ -1,0 +1,35 @@
+name: Production deployment
+on:
+  push:
+    branches:
+      - client-bonsai
+  pull_request:
+    branches:
+      - client-bonsai
+jobs:
+  update-instance:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout client-bonsai
+      uses: actions/checkout@main
+      
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+    - name: Install the gcloud CLI
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Authenticate Docker to Google Artifact Registry
+      run: |-
+        gcloud auth configure-docker us-central1-docker.pkg.dev
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        push: true
+        tags: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/registry/bonsai-server-latest
