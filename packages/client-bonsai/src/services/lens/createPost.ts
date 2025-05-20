@@ -75,6 +75,7 @@ export const formatMetadata = (params: PostParams): TextOnlyMetadata | ImageMeta
         return textOnly({
             content: params.text,
             attributes,
+            tags: ['collectivai']
         });
     }
 
@@ -88,6 +89,7 @@ export const formatMetadata = (params: PostParams): TextOnlyMetadata | ImageMeta
                 license: MetadataLicenseType.CCO,
             },
             attributes,
+            tags: ['collectivai']
         });
     }
 
@@ -101,6 +103,7 @@ export const formatMetadata = (params: PostParams): TextOnlyMetadata | ImageMeta
                 license: MetadataLicenseType.CCO,
             },
             attributes,
+            tags: ['collectivai']
         });
     }
 
