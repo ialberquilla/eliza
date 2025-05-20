@@ -2,7 +2,7 @@ name: Production deployment
 on:
   push:
     branches:
-      - main
+      - client-bonsai
   pull_request:
     branches:
       - client-bonsai
